@@ -1,122 +1,77 @@
-# Part 3: Advanced Modeling – Ensembles, Tuning, and Full ML Pipeline
+
+
+# Part 3: Advanced Modeling — Ensembles, Tuning, and Full ML Pipeline
 
 ## Project Summary
 
-This part of the project focuses on building and comparing advanced machine learning models using the cleaned dataset from Part 2. Different ensemble techniques, hyperparameter tuning, cross-validation, feature importance analysis, learning curves, and model serialization were performed to identify the most reliable classification model for deployment.
+In this part of the project, I moved beyond basic models to build, evaluate, and tune advanced ensemble models. I trained Decision Trees, Random Forests, and Gradient Boosting models, and compared them against our baseline Logistic Regression from Part 2. I also explored feature importance, conducted an ablation study to see what happens when we drop weak features, built a reproducible Machine Learning Pipeline, and tuned hyperparameters using GridSearchCV. And I saved the best performing pipeline for future deployment.
 
-## Dataset
-
-- Dataset: Cleaned Student Mental Health Dataset
-- Input file: `cleaned_data.csv`
-- Training and testing datasets from Part 2 were reused.
-- Classification target: **Mental_Health_Risk**
-- Models were trained using the preprocessed features generated in Part 2.
-
-## Setup
-
-Install the required libraries:
-
-pip install pandas numpy scikit-learn matplotlib joblib
-
-No `.env` file is required.
-
-## Run Commands
+## Setup & Run Commands
 
 To reproduce the results using Jupyter Notebook:
 
 1. Open the Jupyter Notebook interface.
-2. Open the Part 3 notebook (`.ipynb`).
+2. Open the Part 2 notebook (`.ipynb`).
 3. Run all cells sequentially from top to bottom.
 
-## Methodology
+## Methodology & Key Findings
 
-- Loaded the processed training and testing datasets from Part 2.
-- Built an unconstrained Decision Tree classifier.
-- Built a controlled Decision Tree using `max_depth=5` and `min_samples_split=20`.
-- Compared Gini and Entropy splitting criteria.
-- Trained a Random Forest classifier and analysed feature importance.
-- Trained a Gradient Boosting classifier.
-- Performed a feature ablation study by removing the five least important features.
-- Compared multiple models using 5-fold Stratified Cross Validation.
-- Tuned Random Forest hyperparameters using GridSearchCV.
-- Generated a manual learning curve using different training sizes.
-- Saved the best-performing pipeline as `best_model.pkl`.
-- Reloaded the saved model and verified predictions.
+**1. Decision Tree Baseline vs. Controlled Tree:**
 
-## Key Findings
+* **Baseline:** The unconstrained Decision Tree heavily overfit the data (Training Accuracy: 1.0000, Test Accuracy: 0.7200). Decision trees are "high-variance" models because they greedily create rules to perfectly fit the training data at every split, which means they memorize the noise instead of learning the underlying pattern.
+* **Controlled Tree:** By setting `max_depth=5` and `min_samples_split=20`, the gap closed significantly (Train: 0.8250, Test: 0.7475). `max_depth` limits how deep the tree can grow (reducing variance/overfitting), while `min_samples_split` prevents the tree from creating highly specific rules for tiny, noisy groups of data.
 
-- The baseline Decision Tree achieved **100% training accuracy** but only **72.00% test accuracy**, indicating overfitting.
-- The controlled Decision Tree improved generalization with **82.50% training accuracy** and **74.75% test accuracy**.
-- The Gini criterion slightly outperformed Entropy on the test dataset.
-- Random Forest achieved **78.25% test accuracy** with a **ROC-AUC of 0.8968**.
-- Gradient Boosting produced the highest test accuracy (**81.25%**) with a **ROC-AUC of 0.9012**.
-- The five most important features were:
-  - Sleep_Hours
-  - Financial_Stress
-  - Study_Hours_Per_Week
-  - Family_Support
-  - Attendance_Rate
-- Removing the five least important features caused only a very small decrease in ROC-AUC (0.8968 → 0.8922), indicating they contributed very little to prediction.
-- Logistic Regression achieved the highest average cross-validation ROC-AUC (0.9364).
-- GridSearchCV selected the best Random Forest model with:
-  - `n_estimators = 200`
-  - `max_depth = None`
-  - `min_samples_leaf = 5`
-- The learning curve showed that test performance improved as more training data became available before stabilizing.
-- The best trained model was successfully saved and reloaded without errors.
+**2. Gini vs. Entropy:**
 
-## Design Decisions
+* **Formulas:** * Gini Impurity = 1 - Σ(p_i)²
+    * Entropy = -Σ(p_i * log2(p_i))
+* Both methods measure the "impurity" of a node. If a node has a **Gini = 0**, it means the node is perfectly pure—all the samples in that node belong to exactly one class. Both criteria performed very similarly on this dataset.
 
-- A constrained Decision Tree was used to reduce overfitting.
-- Gini and Entropy were compared to evaluate different impurity measures.
-- Random Forest was selected because ensemble learning reduces variance compared to a single decision tree.
-- Feature importance was used to identify the most influential variables.
-- Feature ablation was performed to evaluate whether removing less useful features affected model performance.
-- Stratified Cross Validation was used to obtain a more reliable estimate of model performance.
-- GridSearchCV was applied to systematically identify the best Random Forest hyperparameters.
-- The final model was serialized using Joblib for future deployment.
+**3. Random Forest & Bagging:**
 
-## Model Performance
+* **Top 5 Features:** Sleep_Hours, Financial_Stress, Study_Hours_Per_Week, Family_Support, and Attendance_Rate.
+* **Feature Importance vs. Linear Coefficients:** Random Forest calculates feature importance by looking at how much a feature reduces Gini impurity across all the splits in all the trees. This is different from a linear regression coefficient, which represents the direct mathematical slope (how much Y changes for a one-unit change in X).
+* **Bagging Explained:** "Bagging" (Bootstrap Aggregating) means building multiple decision trees using random samples of the training data (with replacement). Also, at each split, the tree is only allowed to look at a random subset of features. By averaging the predictions of all these uniquely flawed trees, the ensemble smooths out mistakes, significantly reducing the high variance seen in a single deep decision tree.
 
-| Model | Test Accuracy | ROC-AUC |
-|--------|--------------:|--------:|
-| Decision Tree (Baseline) | 0.7200 | - |
-| Controlled Decision Tree | 0.7475 | - |
-| Random Forest | 0.7825 | 0.8968 |
-| Gradient Boosting | 0.8125 | 0.9012 |
+**4. Feature Ablation Study (Production Trade-offs):**
 
-## Cross-Validation Results
+I removed the 5 least important features (mostly gender and job-related columns) and retrained the Random Forest. The ROC-AUC dropped slightly from 0.8968 to 0.8922. Because the score dropped, these features weren't entirely uninformative—they were contributing a little bit. However, in a real production environment, a tiny drop in AUC might be totally acceptable if it means deploying a simpler, faster model that costs less to run and maintain.
 
-| Model | Mean ROC-AUC | Standard Deviation |
-|--------|-------------:|-------------------:|
-| Logistic Regression | 0.9364 | 0.0134 |
-| Controlled Decision Tree | 0.8128 | 0.0275 |
-| Random Forest | 0.9112 | 0.0101 |
-| Gradient Boosting | 0.9214 | 0.0097 |
+**5. Cross-Validation:**
 
-## Hyperparameter Tuning
+I used 5-fold cross-validation instead of relying solely on our Train/Test split. Cross-validation is much more reliable because it tests the model on 5 different, rotating slices of the data. This proves the model's performance is consistent and didn't just get "lucky" with one specific random split.
 
-**Best Parameters**
+**6. Hyperparameter Tuning (GridSearchCV):**
 
-- `n_estimators = 200`
-- `max_depth = None`
-- `min_samples_leaf = 5`
+* I evaluated a total of **90 model configurations** (3 depths × 3 estimator counts × 2 leaf samples = 18 configurations, multiplied by 5 cross-validation folds).
 
-**Best Cross-Validation Score**
+* **Grid Search vs. Randomized Search:** Grid Search exhaustively tries *every single combination* in the parameter grid. It guarantees you find the best combination you asked for, but it is very slow. Randomized Search only tries a random selection of combinations, which is much faster but might miss the absolute perfect setup.
 
-- **ROC-AUC = 0.9051**
+**7. Manual Learning Curve:**
 
-A total of **18 parameter combinations** were evaluated using **5-fold cross-validation**, resulting in **90 model evaluations**.
+| Training Fraction | Training AUC | Test AUC |
+| :--- | :--- | :--- |
+| 0.2 | 0.9907 | 0.8907 |
+| 0.4 | 0.9892 | 0.9018 |
+| 0.6 | 0.9885 | 0.9075 |
+| 0.8 | 0.9887 | 0.9136 |
+| 1.0 | 0.9873 | 0.9123 |
 
-## Learning Curve Summary
+*Interpretation:* As expected with high-variance models, the Training AUC slowly decreased as the dataset grew (it's harder to perfectly memorize more data). The Test AUC generally increased but completely plateaued around 80%-100% of the data. My conclusion is that this model is currently limited by **model capacity**, not data quantity. Feeding it more data probably won't improve the score much further.
 
-The training AUC decreased slightly as more training samples were used, while the test AUC improved and then stabilized around 0.91. This indicates that adding more data improved generalization initially, and the model is approaching its performance limit.
+## Summary Comparison Table & Recommendation
 
-## Model Recommendation
+| Model | 5-Fold CV Mean AUC | 5-Fold CV Std AUC | Test-Set AUC |
+| :--- | :--- | :--- | :--- |
+| Logistic Regression (Part 2) | **0.9364** | 0.0134 | **0.9219** |
+| Controlled Decision Tree | 0.8128 | 0.0275 | ~0.7475 (Accuracy) |
+| Random Forest | 0.9112 | 0.0101 | 0.8968 |
+| Gradient Boosting | 0.9214 | 0.0097 | 0.9012 |
 
-Among all evaluated models, **Logistic Regression** achieved the highest average cross-validation ROC-AUC, while **Gradient Boosting** achieved the highest test accuracy. Considering overall stability, cross-validation performance, and generalization, Logistic Regression remains the recommended model for this dataset. It provides strong predictive performance while remaining simple, interpretable, and computationally efficient.
+**Final Recommendation:**
+
+I recommend deploying the **Logistic Regression** model to the client. Despite being the simplest model, it achieved the highest Mean AUC during cross-validation (0.9364) and performed the best on the unseen test set (0.9219). Complex ensemble models like Random Forest and Gradient Boosting did not provide any performance boost on this specific dataset, making the Logistic Regression the most robust, interpretable, and cost-effective choice for production.
 
 ## Output Files
 
-- `best_model.pkl`
-
+- `best_model.pkl` 
