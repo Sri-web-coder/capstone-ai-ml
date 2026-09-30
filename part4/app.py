@@ -18,6 +18,7 @@ API_KEY = os.environ.get("LLM_API_KEY")
 expected_schema = {
     "type": "object",
     "properties": {
+        
         "prediction_label": {"type": "string"},
         "confidence_level": {"type": "string"},
         "top_reason": {"type": "string"},
@@ -99,7 +100,9 @@ st.markdown("Enter the student's details below to get a prediction and an AI-gen
 @st.cache_resource
 def load_model():
     try:
-        return joblib.load('best_model.pkl') 
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        model_path = os.path.join(current_dir, 'best_model.pkl')
+        return joblib.load(model_path)
     except Exception:
         return None
 
